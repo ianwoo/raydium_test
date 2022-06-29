@@ -13,17 +13,22 @@ import {
   Trade,
   ZERO,
 } from '@raydium-io/raydium-sdk';
+import { useWallet } from '@solana/wallet-adapter-react';
 import {
   Connection,
   PublicKey,
+  Signer,
+  Transaction,
 } from '@solana/web3.js';
 
+import { attachRecentBlockhash } from '../utils/attachRecentBlockhash';
 import {
   deUITokenAmount,
   isQuantumSOL,
   QuantumSOLAmount,
   QuantumSOLToken,
 } from '../utils/deUITokenAmount';
+import sendSignedTransaction from './sendSignedTransaction';
 
 type TradeSource = "amm" | "serum" | "stable";
 type RouteType = "amm" | "serum" | "route";
@@ -64,6 +69,13 @@ type RouteInfo = {
   keys: LiquidityPoolKeys;
 };
 
+type MayPromise<T> = T | Promise<T>;
+
+type FinalInfos = {
+  allSuccess: boolean;
+  txids: string[];
+};
+
 export type Numberish = number | string | bigint | Fraction | BN;
 
 const mintCache = new WeakMap<PublicKey, string>();
@@ -92,6 +104,38 @@ function omit<T, U extends keyof T>(
     Object.entries(obj).filter(([key]: any) => !unvalidKeys.includes(key))
   );
 }
+
+function shakeNullItems<T>(arr: T[]): NonNullable<T>[] {
+  return arr.filter((item) => item != null) as NonNullable<T>[];
+}
+
+function asyncMap<T, U>(
+  arr: T[],
+  mapFn: (item: T, index: number) => MayPromise<U>
+): Promise<Awaited<U>[]> {
+  return Promise.all(arr.map(async (item, idx) => await mapFn(item, idx)));
+}
+
+const partialSignTransacion = async (
+  transaction: Transaction,
+  signers?: Signer[]
+): Promise<Transaction> => {
+  if (signers?.length) {
+    await attachRecentBlockhash(transaction);
+    transaction.partialSign(...signers);
+    return transaction;
+  }
+  return transaction;
+};
+
+const loadTransaction = async (payload: {
+  transaction: Transaction;
+  signers?: Signer[];
+}) => {
+  const { transaction, signers } = payload;
+  const signedTransaction = await partialSignTransacion(transaction, signers);
+  return signedTransaction;
+};
 
 const quantumSOLVersionSOLTokenJsonInfo = {
   isQuantumSOL: true,
@@ -197,7 +241,42 @@ function toBN(n: Numberish, decimal: BigNumberish = 0): BN {
   );
 }
 
-const useSwap = async (
+async function sendMultiTransaction(
+  transactions: Transaction[],
+  connection: Connection,
+  signAllTransactions:
+    | undefined
+    | ((transaction: Transaction[]) => Promise<Transaction[]>)
+) {
+  return async () => {
+    try {
+      const allSignedTransactions = transactions; //should not need to signAllTransactions under limited scope of test
+
+      const txids = allSignedTransactions.map((st, i) =>
+        sendSignedTransaction(
+          st,
+          connection,
+          true,
+          allSignedTransactions.length,
+          i
+        )
+      );
+
+      return {
+        allSuccess: true,
+        txids: txids,
+      };
+    } catch (err) {
+      console.log(err);
+      return {
+        allSuccess: false,
+        txids: [],
+      };
+    }
+  };
+}
+
+const handleSwap = async (
   connection: Connection,
   routes: RouteInfo[],
   routeType: RouteType,
@@ -208,6 +287,8 @@ const useSwap = async (
   minReceived: Numberish,
   alreadyDecimaled: boolean
 ) => {
+  const { signAllTransactions, publicKey } = useWallet();
+
   const numberDetails = parseNumberInfo(minReceived);
 
   const amountBigNumber = toBN(
@@ -229,13 +310,29 @@ const useSwap = async (
   const { setupTransaction, tradeTransaction } =
     await Trade.makeTradeTransaction({
       connection,
-      routes, //
+      routes,
       routeType,
       fixedSide: "in", // TODO: currently  only fixed in
       userKeys: { tokenAccounts: tokenAccountRawInfos, owner },
       amountIn: deUITokenAmount(upCoinTokenAmount), // TODO: currently  only fixed upper side
       amountOut: deUITokenAmount(amountOutBeforeDeUI),
     });
+
+  const signedTransactions = shakeNullItems(
+    await asyncMap([setupTransaction, tradeTransaction], (merged) => {
+      if (!merged) return;
+      const { transaction, signers } = merged;
+      return loadTransaction({ transaction: transaction, signers });
+    })
+  );
+
+  const finalInfos = await sendMultiTransaction(
+    signedTransactions,
+    connection,
+    signAllTransactions
+  );
+
+  return finalInfos;
 };
 
-export default useSwap;
+export default handleSwap;
