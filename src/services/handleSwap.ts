@@ -82,7 +82,7 @@ const mintCache = new WeakMap<PublicKey, string>();
 
 const WSOLMint = new PublicKey("So11111111111111111111111111111111111111112");
 
-function toPubString(mint: PublicKeyish | undefined): string {
+export function toPubString(mint: PublicKeyish | undefined): string {
   if (!mint) return "";
   if (typeof mint === "string") return mint;
   if (mintCache.has(mint)) {
@@ -105,7 +105,7 @@ function omit<T, U extends keyof T>(
   );
 }
 
-function shakeNullItems<T>(arr: T[]): NonNullable<T>[] {
+export function shakeNullItems<T>(arr: T[]): NonNullable<T>[] {
   return arr.filter((item) => item != null) as NonNullable<T>[];
 }
 
@@ -155,25 +155,27 @@ const quantumSOLVersionSOLTokenJsonInfo = {
 const isQuantumSOLVersionSOL = (token: any) =>
   isQuantumSOL(token) && token.collapseTo === "sol";
 
+export const QuantumSOLVersionSOL = Object.assign(
+  new Token(
+    quantumSOLVersionSOLTokenJsonInfo.mint,
+    quantumSOLVersionSOLTokenJsonInfo.decimals,
+    quantumSOLVersionSOLTokenJsonInfo.symbol,
+    quantumSOLVersionSOLTokenJsonInfo.name
+  ),
+  omit(quantumSOLVersionSOLTokenJsonInfo, [
+    "mint",
+    "decimals",
+    "symbol",
+    "name",
+  ])
+) as QuantumSOLToken;
+
 const toQuantumSolAmount = ({
   solRawAmount: solRawAmount,
 }: {
   solRawAmount?: BN;
 }): QuantumSOLAmount => {
-  const quantumSol = Object.assign(
-    new Token(
-      quantumSOLVersionSOLTokenJsonInfo.mint,
-      quantumSOLVersionSOLTokenJsonInfo.decimals,
-      quantumSOLVersionSOLTokenJsonInfo.symbol,
-      quantumSOLVersionSOLTokenJsonInfo.name
-    ),
-    omit(quantumSOLVersionSOLTokenJsonInfo, [
-      "mint",
-      "decimals",
-      "symbol",
-      "name",
-    ])
-  ) as QuantumSOLToken;
+  const quantumSol = QuantumSOLVersionSOL;
   const tempTokenAmount = new TokenAmount(quantumSol, solRawAmount ?? ZERO);
   // @ts-expect-error force
   return Object.assign(tempTokenAmount, {
@@ -181,7 +183,7 @@ const toQuantumSolAmount = ({
   });
 };
 
-function parseNumberInfo(n: Numberish | undefined): {
+export function parseNumberInfo(n: Numberish | undefined): {
   denominator: string;
   numerator: string;
   sign?: string;
@@ -208,7 +210,7 @@ function parseNumberInfo(n: Numberish | undefined): {
   return { denominator, numerator, sign, int, dec };
 }
 
-function toFraction(value: Numberish): Fraction {
+export function toFraction(value: Numberish): Fraction {
   //  to complete math format(may have decimal), not int
   if (value instanceof Percent)
     return new Fraction(value.numerator, value.denominator);
@@ -232,7 +234,33 @@ function toFraction(value: Numberish): Fraction {
   return new Fraction(details.numerator, details.denominator);
 }
 
-function toBN(n: Numberish, decimal: BigNumberish = 0): BN {
+export function toFractionWithDecimals(value: Numberish): {
+  fr: Fraction;
+  decimals?: number;
+} {
+  //  to complete math format(may have decimal), not int
+  if (value instanceof Percent)
+    return { fr: new Fraction(value.numerator, value.denominator) };
+
+  if (value instanceof Price) return { fr: value.adjusted };
+
+  // to complete math format(may have decimal), not BN
+  if (value instanceof TokenAmount)
+    return { fr: toFraction(value.toExact()), decimals: value.token.decimals };
+
+  // do not ideal with other fraction value
+  if (value instanceof Fraction) return { fr: value };
+
+  // wrap to Fraction
+  const n = String(value);
+  const details = parseNumberInfo(n);
+  return {
+    fr: new Fraction(details.numerator, details.denominator),
+    decimals: details.dec?.length,
+  };
+}
+
+export function toBN(n: Numberish, decimal: BigNumberish = 0): BN {
   if (n instanceof BN) return n;
   return new BN(
     toFraction(n)
@@ -276,6 +304,30 @@ async function sendMultiTransaction(
   };
 }
 
+export function toTokenAmount(
+  amount: Numberish,
+  coin: Token,
+  alreadyDecimaled: boolean
+) {
+  const numberDetails = parseNumberInfo(amount);
+
+  const amountBigNumber = toBN(
+    alreadyDecimaled
+      ? new Fraction(numberDetails.numerator, numberDetails.denominator).mul(
+          new BN(10).pow(new BN(coin.decimals))
+        )
+      : amount
+      ? toFraction(amount)
+      : toFraction(0)
+  );
+
+  const issol = isQuantumSOLVersionSOL(coin);
+
+  return issol
+    ? toQuantumSolAmount({ solRawAmount: amountBigNumber })
+    : new TokenAmount(coin, amountBigNumber);
+}
+
 const handleSwap = async (
   connection: Connection,
   routes: RouteInfo[],
@@ -289,23 +341,11 @@ const handleSwap = async (
 ) => {
   const { signAllTransactions, publicKey } = useWallet();
 
-  const numberDetails = parseNumberInfo(minReceived);
-
-  const amountBigNumber = toBN(
+  const amountOutBeforeDeUI = toTokenAmount(
+    minReceived,
+    downCoin,
     alreadyDecimaled
-      ? new Fraction(numberDetails.numerator, numberDetails.denominator).mul(
-          new BN(10).pow(new BN(downCoin.decimals))
-        )
-      : minReceived
-      ? toFraction(minReceived)
-      : toFraction(0)
   );
-
-  const issol = isQuantumSOLVersionSOL(downCoin);
-
-  const amountOutBeforeDeUI = issol
-    ? toQuantumSolAmount({ solRawAmount: amountBigNumber })
-    : new TokenAmount(downCoin, amountBigNumber);
 
   const { setupTransaction, tradeTransaction } =
     await Trade.makeTradeTransaction({

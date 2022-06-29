@@ -19,8 +19,6 @@ export const SOL = new Currency(SOLDecimals, "SOL", "solana");
 export interface QuantumSOLAmount extends TokenAmount {
   token: QuantumSOLToken;
   solBalance: BN;
-  wsolBalance: BN;
-  collapseTo?: "sol" | "wsol";
 }
 
 export type SrcAddress = string;
@@ -54,16 +52,20 @@ export const isQuantumSOLAmount: (
 ) => tokenAmount is QuantumSOLAmount = (tokenAmount) =>
   isQuantumSOL(tokenAmount.token);
 
+/** transaction for SDK: unWrap may QuantumSOL to Token or Currency */
+export function deUIToken(token: Token): Token | Currency {
+  if (isQuantumSOL(token)) {
+    return token.collapseTo === "wsol" ? WSOL : SOL;
+  }
+  return token;
+}
+
 /** transaction for SDK: unWrap  may QuantumSOL to TokenAmount or CurrencyAmount */
 export function deUITokenAmount(
   tokenAmount: TokenAmount
 ): TokenAmount | CurrencyAmount {
   if (isQuantumSOLAmount(tokenAmount)) {
-    if (tokenAmount.token.collapseTo === "wsol") {
-      return new TokenAmount(WSOL, tokenAmount.wsolBalance ?? ZERO); // which means error appears
-    } else {
-      return new CurrencyAmount(SOL, tokenAmount.solBalance ?? ZERO); // which means error appears
-    }
+    return new CurrencyAmount(SOL, tokenAmount.solBalance ?? ZERO); // which means error appears
   }
   return tokenAmount;
 }

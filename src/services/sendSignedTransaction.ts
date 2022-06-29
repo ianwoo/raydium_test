@@ -16,7 +16,6 @@ export default async function sendSignedTransaction(
         skipPreflight: true,
       });
     })();
-
     return txid;
   } catch (err) {
     console.error(err);
