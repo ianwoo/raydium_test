@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@raydium-io/raydium-sdk": "^1.1.0-beta.5",
     "@solana-mobile/wallet-adapter-mobile": "^0.0.1-alpha.0",
     "@solana/wallet-adapter-base": "^0.9.6",
     "@solana/wallet-adapter-react": "^0.15.6",
@@ -16,6 +17,8 @@
     "@types/node": "^16.11.41",
     "@types/react": "^18.0.14",
     "@types/react-dom": "^18.0.5",
+    "bn.js": "^5.2.1",
+    "ky": "^0.31.0",
     "react": "^18.2.0",
     "react-app-rewired": "^2.2.1",
     "react-dom": "^18.2.0",
