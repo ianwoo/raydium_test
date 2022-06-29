@@ -1,8 +1,8 @@
-import { PublicKeyish } from '@raydium-io/raydium-sdk';
 import {
-  Connection,
-  PublicKey,
-} from '@solana/web3.js';
+  LiquidityPoolJsonInfo,
+  PublicKeyish,
+} from '@raydium-io/raydium-sdk';
+import { PublicKey } from '@solana/web3.js';
 
 import { toPubString } from './handleSwap';
 
@@ -25,14 +25,12 @@ function toDataMint(mintlike: PublicKeyish | undefined): string {
 const findLiquidityInfoByTokenMint = async (
   coin1Mintlike: PublicKeyish | undefined,
   coin2Mintlike: PublicKeyish | undefined,
-  connection: Connection,
-  jsonInfos: any[] //need to pull this in through a separate hook
+  jsonInfos: LiquidityPoolJsonInfo[] //need to pull this in through a separate hook
 ) => {
   const coin1Mint = toDataMint(coin1Mintlike);
   const coin2Mint = toDataMint(coin2Mintlike);
 
-  if (!coin1Mint || !coin2Mint)
-    return { availables: [], best: undefined, routeRelated: [] };
+  if (!coin1Mint || !coin2Mint) return [];
   const mint1 = String(coin1Mint);
   const mint2 = String(coin2Mint);
 

@@ -170,7 +170,8 @@ function handleCalculateSwap(
   coinOut: SplToken,
   coinInAmount: Numberish,
   coinOutAmount: Numberish,
-  slippageTolerance: Numberish
+  slippageTolerance: Numberish,
+  liquidityPoolsList: LiquidityPoolJsonInfo[] //pull this in only ONCE using ky
 ) {
   //   const refreshCount = useSwap((s) => s.refreshCount); figure out refresh later
 
@@ -181,7 +182,7 @@ function handleCalculateSwap(
   const liquidityInfo = findLiquidityInfoByTokenMint(
     coinIn.mint,
     coinOut.mint,
-    connection
+    liquidityPoolsList
   );
   //plug this into the UI later
 
@@ -244,15 +245,15 @@ function handleCalculateSwap(
     }
 
     try {
-      const calcResult = await calculatePairTokenAmount({
+      const calcResult = await calculatePairTokenAmount(
         coinIn,
         coinInAmount,
         coinOut,
         coinOutAmount,
         connection,
-        focusSide: focusDirectionSide,
         slippageTolerance,
-      });
+        liquidityPoolsList
+      );
       // for calculatePairTokenAmount is async, result maybe droped. if that, just stop it
       const resultStillFresh = (() => {
         // const currentUpCoinAmount =
@@ -364,49 +365,45 @@ function cleanCalcCache() {
   sdkParsedInfoCache.clear();
 }
 
-async function calculatePairTokenAmount({
-  coinIn,
-  coinInAmount,
-  coinOut,
-  coinOutAmount,
-  focusSide,
-  connection,
-  slippageTolerance,
-}: {
-  coinIn: SplToken;
-  coinInAmount: Numberish; //handle undefined in the component, not the logic
-  coinOut: SplToken;
-  coinOutAmount: Numberish; //handle undefined in the component, not the logic
-  focusSide: "up" | "down";
-  connection: Connection;
-  slippageTolerance: Numberish;
-}): Promise<SwapCalculatorInfo | undefined> {
+async function calculatePairTokenAmount(
+  coinIn: SplToken,
+  coinInAmount: Numberish, //handle undefined in the component, not the logic
+  coinOut: SplToken,
+  coinOutAmount: Numberish, //handle undefined in the component, not the logic
+  connection: Connection,
+  slippageTolerance: Numberish,
+  liquidityPoolsList: LiquidityPoolJsonInfo[]
+): Promise<SwapCalculatorInfo | undefined> {
   const coinInTokenAmount = toTokenAmount(coinInAmount, coinIn, true);
   const coinOutTokenAmount = toTokenAmount(coinOutAmount, coinOut, true);
 
-  const { routeRelated: jsonInfos } = await findLiquidityInfoByTokenMint(
+  const routeRelated = await findLiquidityInfoByTokenMint(
     coinIn.mint,
     coinOut.mint,
-    connection
+    liquidityPoolsList
   );
 
-  if (jsonInfos.length) {
-    const key = jsonInfos.map((jsonInfo: any) => jsonInfo.id).join("-");
+  if (routeRelated.length) {
+    const key = routeRelated
+      .map((jsonInfo: LiquidityPoolJsonInfo) => jsonInfo.id)
+      .join("-");
     const sdkParsedInfos = sdkParsedInfoCache.has(key)
       ? sdkParsedInfoCache.get(key)!
       : await (async () => {
           const sdkParsed = await sdkParseJsonLiquidityInfo(
-            jsonInfos,
+            routeRelated,
             connection
           );
           sdkParsedInfoCache.set(key, sdkParsed);
           return sdkParsed;
         })();
 
-    const pools = jsonInfos.map((jsonInfo: any, idx: number) => ({
-      poolKeys: jsonInfo2PoolKeys(jsonInfo),
-      poolInfo: sdkParsedInfos[idx],
-    }));
+    const pools = routeRelated.map(
+      (jsonInfo: LiquidityPoolJsonInfo, idx: number) => ({
+        poolKeys: jsonInfo2PoolKeys(jsonInfo),
+        poolInfo: sdkParsedInfos[idx],
+      })
+    );
 
     const {
       amountOut,

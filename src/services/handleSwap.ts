@@ -3,6 +3,7 @@ import BN from 'bn.js';
 import {
   BigNumberish,
   Fraction,
+  LiquidityPoolJsonInfo,
   Percent,
   Price,
   PublicKeyish,
@@ -32,31 +33,6 @@ import sendSignedTransaction from './sendSignedTransaction';
 
 type TradeSource = "amm" | "serum" | "stable";
 type RouteType = "amm" | "serum" | "route";
-
-type LiquidityPoolJsonInfo = {
-  readonly id: string;
-  readonly baseMint: string;
-  readonly quoteMint: string;
-  readonly lpMint: string;
-  readonly version: number;
-  readonly programId: string;
-  readonly authority: string;
-  readonly baseVault: string;
-  readonly quoteVault: string;
-  readonly lpVault: string;
-  readonly openOrders: string;
-  readonly targetOrders: string;
-  readonly withdrawQueue: string;
-  readonly marketVersion: number;
-  readonly marketProgramId: string;
-  readonly marketId: string;
-  readonly marketAuthority: string;
-  readonly marketBaseVault: string;
-  readonly marketQuoteVault: string;
-  readonly marketBids: string;
-  readonly marketAsks: string;
-  readonly marketEventQueue: string;
-};
 
 type LiquidityPoolKeys = {
   [T in keyof LiquidityPoolJsonInfo]: string extends LiquidityPoolJsonInfo[T]
