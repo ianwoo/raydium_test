@@ -83,6 +83,7 @@ function App() {
   }, [userInput, coinIn, coinInValidPattern]);
   //validated update to state
   useEffect(() => {
+    console.log(userInput);
     setCoinInAmount(userInput);
   }, [userInput]);
 
@@ -168,12 +169,23 @@ function App() {
                 <span>SOL</span>
               </div>
               {!reversed ? (
-                <input type="number" value={userInput} />
+                <input
+                  type="number"
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                />
               ) : (
                 <div>{coinOutAmount ? coinOutAmount.toString() : ""}</div>
               )}
             </div>
           </div>
+          {executionPrice ? (
+            <div className="swap-price-indicator">
+              <span>{!reversed ? "1 SOL ≈ " : "1 RAY ≈ "}</span>
+              <span>{executionPrice.toFixed(4)}</span>
+              <span>{!reversed ? " RAY" : " SOL"}</span>
+            </div>
+          ) : null}
           <div className="reverse" onClick={() => setReversed(!reversed)}>
             <ReverseIcon />
           </div>
