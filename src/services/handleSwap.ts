@@ -318,7 +318,8 @@ const handleSwap = async (
   routeType: RouteType,
   tokenAccountRawInfos: TokenAccount[],
   owner: PublicKey,
-  coinInTokenAmount: TokenAmount,
+  coinIn: Token,
+  coinInAmount: Numberish,
   coinOut: Token,
   minReceived: Numberish,
   alreadyDecimaled: boolean,
@@ -326,11 +327,12 @@ const handleSwap = async (
     | ((transaction: Transaction[]) => Promise<Transaction[]>)
     | undefined
 ) => {
-  const amountOutBeforeDeUI = toTokenAmount(
+  const coinOutTokenAmount = toTokenAmount(
     minReceived,
     coinOut,
     alreadyDecimaled
   );
+  const coinInTokenAmount = toTokenAmount(coinInAmount, coinIn, true);
 
   const { setupTransaction, tradeTransaction } =
     await Trade.makeTradeTransaction({
@@ -340,7 +342,7 @@ const handleSwap = async (
       fixedSide: "in", // TODO: currently  only fixed in
       userKeys: { tokenAccounts: tokenAccountRawInfos, owner },
       amountIn: deUITokenAmount(coinInTokenAmount), // TODO: currently  only fixed upper side
-      amountOut: deUITokenAmount(amountOutBeforeDeUI),
+      amountOut: deUITokenAmount(coinOutTokenAmount),
     });
 
   const signedTransactions = shakeNullItems(

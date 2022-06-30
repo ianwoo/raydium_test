@@ -59,7 +59,7 @@ function App() {
   //** input => calc*/
   //coinIn
   const [coinIn, setCoinIn] = useState<Token>(QuantumSOLVersionSOL);
-  const [coinInAmount, setCoinInAmount] = useState<TokenAmount>();
+  const [coinInAmount, setCoinInAmount] = useState<Numberish>();
 
   //coinOut
   const [coinOut, setCoinOut] = useState<Token>(RAYToken);
@@ -70,32 +70,21 @@ function App() {
     () => new RegExp(`^(\\d*)(\\.\\d{0,${coinIn.decimals ?? 0}})?$`),
     [coinIn]
   );
-  const coinOutValidPattern = useMemo(
-    () => new RegExp(`^(\\d*)(\\.\\d{0,${coinOut.decimals ?? 0}})?$`),
-    [coinOut]
-  );
   useEffect(() => {
     const satisfied = coinInValidPattern.test(userInput ?? "");
     if (!satisfied) {
       const matched = userInput?.match(
-        `^(\\d*)(\\.\\d{0,${coinIn?.decimals ?? 0}})?(\\d*)$`
+        `^(\\d*)(\\.\\d{0,${coinIn.decimals ?? 0}})?(\\d*)$`
       );
       const [, validInt = "", validDecimal = ""] = matched ?? [];
       const sliced = validInt + validDecimal;
       setUserInput(sliced);
     }
-  }, [coinIn, coinInValidPattern]);
+  }, [userInput, coinIn, coinInValidPattern]);
+  //validated update to state
   useEffect(() => {
-    const satisfied = coinInValidPattern.test(userInput ?? "");
-    if (!satisfied) {
-      const matched = userInput?.match(
-        `^(\\d*)(\\.\\d{0,${coinIn?.decimals ?? 0}})?(\\d*)$`
-      );
-      const [, validInt = "", validDecimal = ""] = matched ?? [];
-      const sliced = validInt + validDecimal;
-      setUserInput(sliced);
-    }
-  }, [coinOut, coinOutValidPattern]);
+    setCoinInAmount(userInput);
+  }, [userInput]);
 
   const [slippageTolerance, setSlippageTolerance] = useState<Numberish>();
 
@@ -142,6 +131,7 @@ function App() {
       "amm",
       tokenAccountRawInfos,
       owner,
+      coinIn,
       coinInAmount,
       coinOut,
       minReceived,
@@ -178,7 +168,7 @@ function App() {
                 <span>SOL</span>
               </div>
               {!reversed ? (
-                <input type="number"></input>
+                <input type="number" value={userInput} />
               ) : (
                 <div>{coinOutAmount ? coinOutAmount.toString() : ""}</div>
               )}
@@ -198,7 +188,7 @@ function App() {
                 <span>RAY</span>
               </div>
               {reversed ? (
-                <input type="number"></input>
+                <input type="number" value={userInput} />
               ) : (
                 <div>{coinOutAmount ? coinOutAmount.toString() : ""}</div>
               )}
