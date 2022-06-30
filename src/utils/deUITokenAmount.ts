@@ -23,14 +23,18 @@ export interface QuantumSOLAmount extends TokenAmount {
 
 export type SrcAddress = string;
 
-export type SplToken = Token & {
-  icon: SrcAddress;
+interface TokenJson {
+  symbol: string;
+  name: string;
+  mint: PublicKey;
+  decimals: number;
   extensions: {
-    [key in "coingeckoId" | "website" | "whitepaper"]?: string;
+    coingeckoId?: string;
   };
-};
+  icon: string;
+}
 
-export interface QuantumSOLToken extends SplToken {
+export interface QuantumSOLToken extends Token {
   isQuantumSOL: true;
   collapseTo?: "sol" | "wsol";
 }

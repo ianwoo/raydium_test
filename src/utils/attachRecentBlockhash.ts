@@ -4,7 +4,7 @@ import {
   Transaction,
 } from '@solana/web3.js';
 
-import useConnectionInit from './useConnectionInit';
+import useConnectionInit from '../services/useConnectionInit';
 
 export async function attachRecentBlockhash(...transactions: Transaction[]) {
   const connection = useConnectionInit();

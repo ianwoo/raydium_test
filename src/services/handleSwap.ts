@@ -310,8 +310,8 @@ const handleSwap = async (
   routeType: RouteType,
   tokenAccountRawInfos: TokenAccount[],
   owner: PublicKey,
-  upCoinTokenAmount: TokenAmount,
-  downCoin: Token,
+  coinInTokenAmount: TokenAmount,
+  coinOut: Token,
   minReceived: Numberish,
   alreadyDecimaled: boolean
 ) => {
@@ -319,7 +319,7 @@ const handleSwap = async (
 
   const amountOutBeforeDeUI = toTokenAmount(
     minReceived,
-    downCoin,
+    coinOut,
     alreadyDecimaled
   );
 
@@ -330,7 +330,7 @@ const handleSwap = async (
       routeType,
       fixedSide: "in", // TODO: currently  only fixed in
       userKeys: { tokenAccounts: tokenAccountRawInfos, owner },
-      amountIn: deUITokenAmount(upCoinTokenAmount), // TODO: currently  only fixed upper side
+      amountIn: deUITokenAmount(coinInTokenAmount), // TODO: currently  only fixed upper side
       amountOut: deUITokenAmount(amountOutBeforeDeUI),
     });
 

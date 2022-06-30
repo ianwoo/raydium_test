@@ -24,7 +24,6 @@ import useAsyncEffect from '../hooks/useAsyncEffect';
 import {
   deUIToken,
   deUITokenAmount,
-  SplToken,
 } from '../utils/deUITokenAmount';
 import findLiquidityInfoByTokenMint from './getLiquidity';
 import {
@@ -166,8 +165,8 @@ export async function sdkParseJsonLiquidityInfo(
 
 function handleCalculateSwap(
   connection: Connection,
-  coinIn: SplToken,
-  coinOut: SplToken,
+  coinIn: Token,
+  coinOut: Token,
   coinInAmount: Numberish,
   coinOutAmount: Numberish,
   slippageTolerance: Numberish,
@@ -366,9 +365,9 @@ function cleanCalcCache() {
 }
 
 async function calculatePairTokenAmount(
-  coinIn: SplToken,
+  coinIn: Token,
   coinInAmount: Numberish, //handle undefined in the component, not the logic
-  coinOut: SplToken,
+  coinOut: Token,
   coinOutAmount: Numberish, //handle undefined in the component, not the logic
   connection: Connection,
   slippageTolerance: Numberish,
