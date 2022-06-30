@@ -1,0 +1,126 @@
+.app {
+  width: 100%;
+  height: calc(100vh - 48px);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  background-image: linear-gradient(to bottom, #0c0927, #110d36);
+  .swap-wrapper {
+    border-radius: 21.2px;
+    padding: 1.2px;
+    background-image: linear-gradient(
+      var(--gradient-rotate, 246deg),
+      #da2eef 7.97%,
+      #2b6aff 49.17%,
+      #39d0d8 92.1%
+    );
+    .swap {
+      width: 420px;
+      height: 420px;
+      padding: 1rem 1.5rem 2rem 1.5rem;
+      border-radius: 21.2px;
+      background-image: linear-gradient(
+          140.14deg,
+          rgba(0, 182, 191, 0.15),
+          rgba(27, 22, 89, 0.1) 86.61%
+        ),
+        linear-gradient(321.82deg, #18134d, #1b1659);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+
+      .coin {
+        width: calc(100% - 24px);
+        padding: 0.75rem 1.5rem;
+        background-color: rgb(20, 16, 65, 1);
+        border-radius: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0s;
+        transform: translateY(0px);
+
+        &.in {
+          &.reversed {
+            transform: translateY(303px);
+          }
+        }
+        &.out {
+          &.reversed {
+            transform: translateY(-303px);
+          }
+        }
+
+        .labels {
+          justify-content: space-between;
+          display: flex;
+          margin-bottom: 0.5rem;
+          span {
+            color: rgba(171, 196, 255, 0.5);
+            font-size: 0.75rem;
+            line-height: 1rem;
+          }
+        }
+
+        .action {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          .coin-label {
+            display: flex;
+            .coin-icon {
+              height: 69px;
+              width: 69px;
+              border-radius: 69px;
+              &.raydium {
+                background: url("./pngs/raydium.png");
+                background-size: contain;
+              }
+              &.solana {
+                background: url("./pngs/solana.png");
+                background-size: contain;
+              }
+            }
+            span {
+              font-size: 36px;
+              color: white;
+              margin-left: 12px;
+            }
+          }
+
+          input {
+            background: transparent;
+            outline-offset: 2px;
+            font-weight: 500;
+            text-align: right;
+            width: calc(100% - 24px);
+            border-style: none;
+            font-size: 18px;
+            color: white;
+            margin-left: 24px;
+          }
+        }
+      }
+
+      .reverse {
+        width: 69px;
+        height: 69px;
+        border-radius: 69px;
+        color: #3bd0d8;
+        border: 2px solid #58f3cd;
+        background: linear-gradient(
+          162deg,
+          var(rgba(59, 208, 216, 0.2)) 28.7%,
+          var(rgba(59, 208, 216, 0), var(rgba(59, 208, 216, 0.2)))
+        );
+        background-color: rgba(59, 208, 216, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+      }
+    }
+  }
+}

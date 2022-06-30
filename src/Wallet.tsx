@@ -1,4 +1,6 @@
-import React, {
+import './Wallet.scss';
+
+import {
   FC,
   useMemo,
 } from 'react';
@@ -60,8 +62,10 @@ export const Wallet: FC = () => {
     <ConnectionProvider endpoint={endpoint}>
       <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
-          <WalletMultiButton />
-          <WalletDisconnectButton />
+          <div className="wallet-bar">
+            <WalletMultiButton />
+            <WalletDisconnectButton />
+          </div>
           <App />
         </WalletModalProvider>
       </WalletProvider>

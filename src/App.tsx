@@ -1,4 +1,4 @@
-import './App.css';
+import './App.scss';
 
 import {
   useEffect,
@@ -20,13 +20,13 @@ import {
 import useCalculateSwap from './hooks/useCalculateSwap';
 import useConnectionInit from './hooks/useConnectionInit';
 import useLiquidityPoolList from './hooks/useLiquidityPoolList';
-import logo from './logo.svg';
 import { RAYMint } from './services/getLiquidity';
 import { getWalletTokenAccounts } from './services/getWalletTokenAccounts';
 import handleSwap, {
   Numberish,
   QuantumSOLVersionSOL,
 } from './services/handleSwap';
+import ReverseIcon from './svgs/ReverseIcon';
 
 const RAYToken: Token = new Token(RAYMint, 6, "RAY", "Raydium");
 
@@ -43,6 +43,9 @@ function App() {
   const { publicKey: owner, signAllTransactions } = useWallet();
 
   const liquidityPoolsList = useLiquidityPoolList();
+
+  //controller state
+  const [reversed, setReversed] = useState<boolean>(false);
 
   //input => calc
   const [coinIn, setCoinIn] = useState<Token>(QuantumSOLVersionSOL);
@@ -111,22 +114,40 @@ function App() {
   ]);
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div className="app">
+      <div className="swap-wrapper">
+        <div className="swap">
+          <div className={"coin in" + (reversed ? " reversed" : "")}>
+            <div className="labels">
+              <span>{reversed ? "To" : "From"}</span>
+              <span>Balance: (wallet not connected)</span>
+            </div>
+            <div className="action">
+              <div className="coin-label">
+                <div className="coin-icon solana" />
+                <span>SOL</span>
+              </div>
+              <input type="number"></input>
+            </div>
+          </div>
+          <div className="reverse" onClick={() => setReversed(!reversed)}>
+            <ReverseIcon />
+          </div>
+          <div className={"coin out" + (reversed ? " reversed" : "")}>
+            <div className="labels">
+              <span>{reversed ? "From" : "To"}</span>
+              <span>Balance: (wallet not connected)</span>
+            </div>
+            <div className="action">
+              <div className="coin-label">
+                <div className="coin-icon raydium" />
+                <span>RAY</span>
+              </div>
+              <input type="number"></input>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
