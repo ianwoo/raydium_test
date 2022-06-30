@@ -5,7 +5,6 @@ import BN from 'bn.js';
 import {
   CurrencyAmount,
   jsonInfo2PoolKeys,
-  Liquidity,
   LiquidityPoolJsonInfo,
   Percent,
   Price,
@@ -30,7 +29,6 @@ import {
   toBN,
   toFraction,
   toFractionWithDecimals,
-  toPubString,
   toTokenAmount,
 } from '../services/handleSwap';
 import {
@@ -145,28 +143,30 @@ function isMintEqual(
   return String(publicKeyish1) === String(publicKeyish2);
 }
 
-export async function sdkParseJsonLiquidityInfo(
-  liquidityJsonInfos: LiquidityPoolJsonInfo[],
-  connection: Connection
-): Promise<SDKParsedLiquidityInfo[]> {
-  if (!connection) return [];
-  if (!liquidityJsonInfos.length) return []; // no jsonInfo
-  try {
-    const info = await Liquidity.fetchMultipleInfo({
-      connection,
-      pools: liquidityJsonInfos.map(jsonInfo2PoolKeys),
-    });
-    const result = info.map((sdkParsed, idx) => ({
-      jsonInfo: liquidityJsonInfos[idx],
-      ...jsonInfo2PoolKeys(liquidityJsonInfos[idx]),
-      ...sdkParsed,
-    }));
-    return result;
-  } catch (err) {
-    console.error(err);
-    return [];
-  }
-}
+// export async function sdkParseJsonLiquidityInfo(
+//   liquidityJsonInfos: LiquidityPoolJsonInfo[],
+//   connection: Connection
+// ): Promise<SDKParsedLiquidityInfo[]> {
+//   console.log("connection");
+//   console.log(connection);
+//   if (!connection) return [];
+//   if (!liquidityJsonInfos.length) return []; // no jsonInfo
+//   try {
+//     const info = await Liquidity.fetchMultipleInfo({
+//       connection,
+//       pools: liquidityJsonInfos.map(jsonInfo2PoolKeys),
+//     });
+//     const result = info.map((sdkParsed, idx) => ({
+//       jsonInfo: liquidityJsonInfos[idx],
+//       ...jsonInfo2PoolKeys(liquidityJsonInfos[idx]),
+//       ...sdkParsed,
+//     }));
+//     return result;
+//   } catch (err) {
+//     console.error(err);
+//     return [];
+//   }
+// }
 
 type SwapCalculatorInfo = {
   executionPrice: ReturnType<
@@ -181,6 +181,8 @@ type SwapCalculatorInfo = {
     | { amountOut: string; minAmountOut: string }
     | { amountIn: string; maxAmountIn: string };
 };
+
+const sdkParsedInfoCache = new Map<HexAddress, SDKParsedLiquidityInfo[]>();
 
 async function calculatePairTokenAmount(
   coinIn: Token,
@@ -199,13 +201,38 @@ async function calculatePairTokenAmount(
   );
 
   if (routeRelated.length) {
-    const sdkParsedInfos = await (async () =>
-      await sdkParseJsonLiquidityInfo(routeRelated, connection))();
+    // const key = routeRelated.map((jsonInfo) => jsonInfo.id).join("-");
+    // const sdkParsedInfos = sdkParsedInfoCache.has(key)
+    //   ? sdkParsedInfoCache.get(key)!
+    //   : await (async () => {
+    //       const sdkParsed = await sdkParseJsonLiquidityInfo(
+    //         routeRelated,
+    //         connection
+    //       );
+    //       sdkParsedInfoCache.set(key, sdkParsed);
+    //       return sdkParsed;
+    //     })();
+    // const sdkParsedInfos = await (async () =>
+    //   await sdkParseJsonLiquidityInfo(routeRelated, connection))();
+
+    //I tried using Liquidity.fetchMultipleInfo but for some reason it keeps getting blocked by CORS, since it's in an external library I can't modify that
+    //so instead I tried to hack it by hardcoding it. Therefore these values are outdated, but since the reserves and supply are quite high, I figured it should still work...
+    const poolInfo = {
+      baseDecimals: 6,
+      baseReserve: new BN(9779552947958),
+      lpDecimals: 6,
+      lpSupply: new BN(3916541940313),
+      quoteDecimals: 9,
+      quoteReserve: new BN(191646072485850),
+      startTime: new BN(0),
+      status: new BN(1),
+    };
 
     const pools = routeRelated.map(
       (jsonInfo: LiquidityPoolJsonInfo, idx: number) => ({
         poolKeys: jsonInfo2PoolKeys(jsonInfo),
-        poolInfo: sdkParsedInfos[idx],
+        // poolInfo: sdkParsedInfos[idx],
+        poolInfo: poolInfo,
       })
     );
 
@@ -238,9 +265,9 @@ async function calculatePairTokenAmount(
       }
     );
 
-    const sdkParsedInfoMap = new Map(
-      sdkParsedInfos.map((info: any) => [toPubString(info.id), info])
-    );
+    // const sdkParsedInfoMap = new Map(
+    //   sdkParsedInfos.map((info: any) => [toPubString(info.id), info])
+    // );
 
     //we know that SOL is swappable with RAY.
 
@@ -314,11 +341,11 @@ function useCalculateSwap(
       return;
     }
 
-    const liquidityInfo = findLiquidityInfoByTokenMint(
-      coinIn.mint,
-      coinOut.mint,
-      liquidityPoolsList
-    );
+    // const liquidityInfo = findLiquidityInfoByTokenMint(
+    //   coinIn.mint,
+    //   coinOut.mint,
+    //   liquidityPoolsList
+    // );
 
     // only one direction, due to swap route's `Trade.getBestAmountIn()` is not ready\
     //therefore no need for 'maxSpent'

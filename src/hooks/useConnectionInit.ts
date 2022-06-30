@@ -3,23 +3,9 @@ import {
   useState,
 } from 'react';
 
-import ky from 'ky';
-
 import { Connection } from '@solana/web3.js';
 
-const devRpcConfig: Omit<Config, "success"> = {
-  rpcs: [
-    // { name: 'genesysgo', url: 'https://raydium.genesysgo.net', weight: 0 }
-    // { name: 'rpcpool', url: 'https://raydium.rpcpool.com', weight: 100 }
-    // { url: 'https://arbirgis.rpcpool.com/', weight: 100 },
-    // { url: 'https://solana-api.projectserum.com', weight: 100 }
-    { name: "beta-mainnet", url: "https://api.mainnet-beta.solana.com/" },
-    { name: "api.mainnet", url: "https://api.mainnet.rpcpool.com/" },
-    { name: "tt", url: "https://solana-api.tt-prod.net" },
-    { name: "apricot", url: "https://apricot-main-67cd.mainnet.rpcpool.com/" },
-  ],
-  strategy: "speed",
-};
+import jFetch from '../utils/jFetch';
 
 export type Endpoint = {
   name?: string;
@@ -32,6 +18,24 @@ export type Config = {
   strategy: "speed" | "weight";
   success: boolean;
   rpcs: Endpoint[];
+};
+
+const devRpcConfig: Omit<Config, "success"> = {
+  rpcs: [
+    // { name: 'genesysgo', url: 'https://raydium.genesysgo.net', weight: 0 }
+    // { name: 'rpcpool', url: 'https://raydium.rpcpool.com', weight: 100 }
+    // { url: 'https://arbirgis.rpcpool.com/', weight: 100 },
+    // { url: 'https://solana-api.projectserum.com', weight: 100 }
+    {
+      name: "beta-mainnet",
+      weight: 100,
+      url: "https://api.mainnet-beta.solana.com/",
+    },
+    { name: "api.mainnet", url: "https://api.mainnet.rpcpool.com/" },
+    { name: "tt", url: "https://solana-api.tt-prod.net" },
+    { name: "apricot", url: "https://apricot-main-67cd.mainnet.rpcpool.com/" },
+  ],
+  strategy: "weight",
 };
 
 async function calculateEndpointUrlByRpcConfig({
@@ -93,20 +97,25 @@ export default function useConnectionInit() {
   const [connection, setConnection] = useState<Connection>();
 
   useEffect(() => {
-    ky.get("https://api.raydium.io/v2/main/rpcs")
-      .json()
-      .then(async (data: any) => {
-        // jFetch<Config>("https://api.raydium.io/v2/main/rpcs")
+    jFetch<Config>("https://api.raydium.io/v2/main/rpcs").then(
+      async (data: any) => {
         if (!data) return;
 
+        // dev test
+        if (!globalThis.location.host.includes("raydium.io")) {
+          Reflect.set(data, "rpcs", devRpcConfig.rpcs);
+          Reflect.set(data, "strategy", devRpcConfig.strategy);
+        }
+
         const selectedEndpointUrl = await calculateEndpointUrlByRpcConfig(data);
-        const connection = new Connection(selectedEndpointUrl, "confirmed");
+        const connectionInit = new Connection(selectedEndpointUrl, "confirmed");
 
         // setAvailableEndPoints(data.rpcs);
         // setAutoEndPoint(selectedEndpointUrl);
         // setCurrentEndPoint(selectedEndpointUrl);
-        setConnection(connection);
-      });
+        setConnection(connectionInit);
+      }
+    );
   }, []);
 
   return connection;

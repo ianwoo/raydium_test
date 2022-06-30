@@ -11,7 +11,6 @@ import {
   TokenAccount,
   TokenAmount,
 } from '@raydium-io/raydium-sdk';
-import { useWallet } from '@solana/wallet-adapter-react';
 import {
   Connection,
   PublicKey,
@@ -46,7 +45,10 @@ function App() {
   //init solana connection
   const connection = useConnectionInit();
   //solana wallet
-  const { publicKey: owner, signAllTransactions } = useWallet();
+  // const { publicKey: owner, signAllTransactions } = useWallet();
+
+  const owner = false;
+  const signAllTransactions = () => {};
   //liquidity pool json data from raydium
   const liquidityPoolsList = useLiquidityPoolList();
 
@@ -83,11 +85,10 @@ function App() {
   }, [userInput, coinIn, coinInValidPattern]);
   //validated update to state
   useEffect(() => {
-    console.log(userInput);
     setCoinInAmount(userInput);
   }, [userInput]);
 
-  const [slippageTolerance, setSlippageTolerance] = useState<Numberish>();
+  const [slippageTolerance, setSlippageTolerance] = useState<Numberish>(0.01);
 
   const [tokenAccountRawInfos, setTokenAccountRawInfos] =
     useState<TokenAccount[]>();
@@ -118,6 +119,7 @@ function App() {
     slippageTolerance,
     liquidityPoolsList
   );
+
   //execute swap
   const swap = useMemo(() => {
     if (!connection) return; //handle error case? but this should never happen, should block swap if no connection
@@ -153,6 +155,8 @@ function App() {
     isMeaningfulNumber(coinInAmount) &&
     isMeaningfulNumber(coinOutAmount) &&
     executionPrice;
+
+  console.log(executionPrice);
 
   return (
     <div className="app">

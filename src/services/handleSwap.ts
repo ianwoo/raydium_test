@@ -258,7 +258,8 @@ async function sendMultiTransaction(
   connection: Connection,
   signAllTransactions:
     | undefined
-    | ((transaction: Transaction[]) => Promise<Transaction[]>)
+    // | ((transaction: Transaction[]) => Promise<Transaction[]>)
+    | (() => void)
 ) {
   return async () => {
     try {
@@ -324,7 +325,8 @@ const handleSwap = async (
   minReceived: Numberish,
   alreadyDecimaled: boolean,
   signAllTransactions:
-    | ((transaction: Transaction[]) => Promise<Transaction[]>)
+    | (() => void)
+    // | ((transaction: Transaction[]) => Promise<Transaction[]>)
     | undefined
 ) => {
   const coinOutTokenAmount = toTokenAmount(

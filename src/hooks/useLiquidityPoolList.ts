@@ -17,7 +17,7 @@ export default function useLiquidityPoolList() {
       .json()
       .then(async (data: any) => {
         if (!data) return;
-        setLiquidityPoolsList(data);
+        setLiquidityPoolsList(data.official);
       });
   }, []);
 
