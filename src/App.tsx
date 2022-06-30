@@ -17,7 +17,7 @@ import {
   PublicKey,
 } from '@solana/web3.js';
 
-import useCalculateSwap from './hooks/useCalculateSwap';
+import useCalculateSwap, { eq } from './hooks/useCalculateSwap';
 import useConnectionInit from './hooks/useConnectionInit';
 import useLiquidityPoolList from './hooks/useLiquidityPoolList';
 import { RAYMint } from './services/getLiquidity';
@@ -37,21 +37,65 @@ const getTokenAccountRawInfos = async (
   return getWalletTokenAccounts({ connection, owner });
 };
 
+function isMeaningfulNumber(n: Numberish | undefined): n is Numberish {
+  if (n == null) return false;
+  return !eq(n, 0);
+}
+
 function App() {
+  //init solana connection
   const connection = useConnectionInit();
-
+  //solana wallet
   const { publicKey: owner, signAllTransactions } = useWallet();
-
+  //liquidity pool json data from raydium
   const liquidityPoolsList = useLiquidityPoolList();
 
   //controller state
   const [reversed, setReversed] = useState<boolean>(false);
 
-  //input => calc
+  //user input
+  const [userInput, setUserInput] = useState<string>("");
+
+  //** input => calc*/
+  //coinIn
   const [coinIn, setCoinIn] = useState<Token>(QuantumSOLVersionSOL);
   const [coinInAmount, setCoinInAmount] = useState<TokenAmount>();
 
+  //coinOut
   const [coinOut, setCoinOut] = useState<Token>(RAYToken);
+  const [coinOutAmount, setCoinOutAmount] = useState<TokenAmount>();
+
+  //validation
+  const coinInValidPattern = useMemo(
+    () => new RegExp(`^(\\d*)(\\.\\d{0,${coinIn.decimals ?? 0}})?$`),
+    [coinIn]
+  );
+  const coinOutValidPattern = useMemo(
+    () => new RegExp(`^(\\d*)(\\.\\d{0,${coinOut.decimals ?? 0}})?$`),
+    [coinOut]
+  );
+  useEffect(() => {
+    const satisfied = coinInValidPattern.test(userInput ?? "");
+    if (!satisfied) {
+      const matched = userInput?.match(
+        `^(\\d*)(\\.\\d{0,${coinIn?.decimals ?? 0}})?(\\d*)$`
+      );
+      const [, validInt = "", validDecimal = ""] = matched ?? [];
+      const sliced = validInt + validDecimal;
+      setUserInput(sliced);
+    }
+  }, [coinIn, coinInValidPattern]);
+  useEffect(() => {
+    const satisfied = coinInValidPattern.test(userInput ?? "");
+    if (!satisfied) {
+      const matched = userInput?.match(
+        `^(\\d*)(\\.\\d{0,${coinIn?.decimals ?? 0}})?(\\d*)$`
+      );
+      const [, validInt = "", validDecimal = ""] = matched ?? [];
+      const sliced = validInt + validDecimal;
+      setUserInput(sliced);
+    }
+  }, [coinOut, coinOutValidPattern]);
 
   const [slippageTolerance, setSlippageTolerance] = useState<Numberish>();
 
@@ -67,6 +111,7 @@ function App() {
     });
   }, [connection, owner]);
 
+  //** calc => output */
   const {
     fee,
     routes,
@@ -83,7 +128,7 @@ function App() {
     slippageTolerance,
     liquidityPoolsList
   );
-
+  //execute swap
   const swap = useMemo(() => {
     if (!connection) return; //handle error case? but this should never happen, should block swap if no connection
     if (!owner) return; //''
@@ -113,11 +158,16 @@ function App() {
     minReceived,
   ]);
 
+  const hasSwapDetermined =
+    isMeaningfulNumber(coinInAmount) &&
+    isMeaningfulNumber(coinOutAmount) &&
+    executionPrice;
+
   return (
     <div className="app">
       <div className="swap-wrapper">
         <div className="swap">
-          <div className={"coin in" + (reversed ? " reversed" : "")}>
+          <div className={"coin sol" + (reversed ? " reversed out" : " in")}>
             <div className="labels">
               <span>{reversed ? "To" : "From"}</span>
               <span>Balance: (wallet not connected)</span>
@@ -127,13 +177,17 @@ function App() {
                 <div className="coin-icon solana" />
                 <span>SOL</span>
               </div>
-              <input type="number"></input>
+              {!reversed ? (
+                <input type="number"></input>
+              ) : (
+                <div>{coinOutAmount ? coinOutAmount.toString() : ""}</div>
+              )}
             </div>
           </div>
           <div className="reverse" onClick={() => setReversed(!reversed)}>
             <ReverseIcon />
           </div>
-          <div className={"coin out" + (reversed ? " reversed" : "")}>
+          <div className={"coin ray" + (reversed ? " reversed in" : " out")}>
             <div className="labels">
               <span>{reversed ? "From" : "To"}</span>
               <span>Balance: (wallet not connected)</span>
@@ -143,7 +197,11 @@ function App() {
                 <div className="coin-icon raydium" />
                 <span>RAY</span>
               </div>
-              <input type="number"></input>
+              {reversed ? (
+                <input type="number"></input>
+              ) : (
+                <div>{coinOutAmount ? coinOutAmount.toString() : ""}</div>
+              )}
             </div>
           </div>
         </div>

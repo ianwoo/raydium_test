@@ -42,12 +42,12 @@
         transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0s;
         transform: translateY(0px);
 
-        &.in {
+        &.sol {
           &.reversed {
             transform: translateY(303px);
           }
         }
-        &.out {
+        &.ray {
           &.reversed {
             transform: translateY(-303px);
           }

@@ -57,7 +57,10 @@ type SDKParsedLiquidityInfo = ReplaceType<
   startTime: BN;
 };
 
-function eq(a: Numberish | undefined, b: Numberish | undefined): boolean {
+export function eq(
+  a: Numberish | undefined,
+  b: Numberish | undefined
+): boolean {
   if (a == null || b == null) return false;
   const fa = toFraction(a);
   const fb = toFraction(b);

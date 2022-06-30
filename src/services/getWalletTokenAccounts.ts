@@ -13,8 +13,6 @@ import {
   PublicKey,
 } from '@solana/web3.js';
 
-declare type SplAccountLayout = typeof SPL_ACCOUNT_LAYOUT;
-
 export interface ITokenAccount {
   publicKey?: PublicKey;
   mint?: PublicKey;
