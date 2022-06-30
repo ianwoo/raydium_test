@@ -1,12 +1,14 @@
 import './App.css';
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
 } from 'react';
 
 import {
+  RouteInfo,
   Token,
   TokenAccount,
   TokenAmount,
@@ -20,6 +22,7 @@ import {
 import logo from './logo.svg';
 import { RAYMint } from './services/getLiquidity';
 import { getWalletTokenAccounts } from './services/getWalletTokenAccounts';
+import handleCalculateSwap from './services/handleCalculateSwap';
 import handleSwap, {
   Numberish,
   QuantumSOLVersionSOL,
@@ -47,7 +50,12 @@ function App() {
   const [coinInAmount, setCoinInAmount] = useState<TokenAmount>();
 
   const [coinOut, setCoinOut] = useState<Token>(RAYToken);
+  const [coinOutAmount, setCoinOutAmount] = useState<Numberish>();
   const [minReceived, setMinReceived] = useState<Numberish>();
+
+  const [slippageTolerance, setSlippageTolerance] = useState<Numberish>();
+
+  const [routes, setRoutes] = useState<RouteInfo[]>([]);
 
   const [tokenAccountRawInfos, setTokenAccountRawInfos] =
     useState<TokenAccount[]>();
@@ -60,6 +68,29 @@ function App() {
       setTokenAccountRawInfos(rawInfos);
     });
   }, [connection, owner]);
+
+  const calcSwap = useCallback(() => {
+    if (!connection) return; //handle error case? but this should never happen, should block swap if no connection
+    if (!coinInAmount) return;
+    if (!slippageTolerance) return;
+
+    handleCalculateSwap(
+      connection,
+      coinIn,
+      coinOut,
+      coinInAmount,
+      slippageTolerance,
+      liquidityPoolsList
+    );
+  }, [
+    connection,
+    coinIn,
+    coinOut,
+    coinInAmount,
+    coinOutAmount,
+    slippageTolerance,
+    liquidityPoolsList,
+  ]);
 
   const swap = useMemo(() => {
     if (!connection) return; //handle error case? but this should never happen, should block swap if no connection

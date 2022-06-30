@@ -11,7 +11,6 @@ import {
   ReplaceType,
   Token,
   Trade,
-  WSOL,
   ZERO,
 } from '@raydium-io/raydium-sdk';
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -168,7 +167,6 @@ function handleCalculateSwap(
   coinIn: Token,
   coinOut: Token,
   coinInAmount: Numberish,
-  coinOutAmount: Numberish,
   slippageTolerance: Numberish,
   liquidityPoolsList: LiquidityPoolJsonInfo[] //pull this in only ONCE using ky
 ) {
@@ -218,60 +216,15 @@ function handleCalculateSwap(
     const focusDirectionSide = "up"; // temporary focus side is always up, due to swap route's `Trade.getBestAmountIn()` is not ready
     // focusSide === 'coin1' ? (directionReversed ? 'down' : 'up') : directionReversed ? 'up' : 'down'
 
-    // SOL / WSOL is special
-    const inputIsSolWSOL =
-      isMintEqual(coinIn, coinOut) && isMintEqual(coinIn, WSOL.mint);
-    if (inputIsSolWSOL) {
-      if (eq(coinInAmount, coinOutAmount)) return;
-
-      //RESET STATE
-
-      //   useSwap.setState({
-      //     fee: undefined,
-      //     minReceived: undefined,
-      //     maxSpent: undefined,
-      //     routes: undefined,
-      //     priceImpact: undefined,
-      //     executionPrice: undefined,
-      //     ...{
-      //       [focusSide === "coin1" ? "coin2Amount" : "coin1Amount"]:
-      //         focusSide === "coin1"
-      //           ? toString(userCoin1Amount)
-      //           : toString(userCoin2Amount),
-      //     },
-      //   });
-      return;
-    }
-
     try {
       const calcResult = await calculatePairTokenAmount(
         coinIn,
         coinInAmount,
         coinOut,
-        coinOutAmount,
         connection,
         slippageTolerance,
         liquidityPoolsList
       );
-      // for calculatePairTokenAmount is async, result maybe droped. if that, just stop it
-      const resultStillFresh = (() => {
-        // const currentUpCoinAmount =
-        //   (directionReversed
-        //     ? useSwap.getState().coin2Amount
-        //     : useSwap.getState().coin1Amount) || "0";
-        // const currentDownCoinAmount =
-        //   (directionReversed
-        //     ? useSwap.getState().coin1Amount
-        //     : useSwap.getState().coin2Amount) || "0";
-        // const currentFocusSideAmount =
-        //   focusDirectionSide === "up"
-        //     ? currentUpCoinAmount
-        //     : currentDownCoinAmount;
-        // const focusSideAmount =
-        //   focusDirectionSide === "up" ? upCoinAmount : downCoinAmount;
-        return eq(coinInAmount, coinOutAmount);
-      })();
-      if (!resultStillFresh) return;
 
       if (focusDirectionSide === "up") {
         const {
@@ -334,7 +287,6 @@ function handleCalculateSwap(
     coinIn,
     coinOut,
     coinInAmount,
-    coinOutAmount,
     slippageTolerance,
     connection,
     // pathname,
@@ -368,13 +320,11 @@ async function calculatePairTokenAmount(
   coinIn: Token,
   coinInAmount: Numberish, //handle undefined in the component, not the logic
   coinOut: Token,
-  coinOutAmount: Numberish, //handle undefined in the component, not the logic
   connection: Connection,
   slippageTolerance: Numberish,
   liquidityPoolsList: LiquidityPoolJsonInfo[]
 ): Promise<SwapCalculatorInfo | undefined> {
   const coinInTokenAmount = toTokenAmount(coinInAmount, coinIn, true);
-  const coinOutTokenAmount = toTokenAmount(coinOutAmount, coinOut, true);
 
   const routeRelated = await findLiquidityInfoByTokenMint(
     coinIn.mint,
