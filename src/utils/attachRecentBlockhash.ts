@@ -1,15 +1,14 @@
-import { useWallet } from '@solana/wallet-adapter-react';
 import {
   Connection,
+  PublicKey,
   Transaction,
 } from '@solana/web3.js';
 
-import useConnectionInit from '../services/useConnectionInit';
-
-export async function attachRecentBlockhash(...transactions: Transaction[]) {
-  const connection = useConnectionInit();
-  const { publicKey } = useWallet();
-
+export async function attachRecentBlockhash(
+  transactions: Transaction[],
+  publicKey: PublicKey,
+  connection: Connection
+) {
   for await (const transaction of transactions) {
     if (!transaction.recentBlockhash) {
       // recentBlockhash may already attached by sdk

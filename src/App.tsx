@@ -1,14 +1,12 @@
 import './App.css';
 
 import {
-  useCallback,
   useEffect,
   useMemo,
   useState,
 } from 'react';
 
 import {
-  RouteInfo,
   Token,
   TokenAccount,
   TokenAmount,
@@ -19,16 +17,16 @@ import {
   PublicKey,
 } from '@solana/web3.js';
 
+import useCalculateSwap from './hooks/useCalculateSwap';
+import useConnectionInit from './hooks/useConnectionInit';
+import useLiquidityPoolList from './hooks/useLiquidityPoolList';
 import logo from './logo.svg';
 import { RAYMint } from './services/getLiquidity';
 import { getWalletTokenAccounts } from './services/getWalletTokenAccounts';
-import handleCalculateSwap from './services/handleCalculateSwap';
 import handleSwap, {
   Numberish,
   QuantumSOLVersionSOL,
 } from './services/handleSwap';
-import useConnectionInit from './services/useConnectionInit';
-import useLiquidityPoolList from './services/useLiquidityPoolList';
 
 const RAYToken: Token = new Token(RAYMint, 6, "RAY", "Raydium");
 
@@ -42,20 +40,17 @@ const getTokenAccountRawInfos = async (
 function App() {
   const connection = useConnectionInit();
 
-  const { publicKey: owner } = useWallet();
+  const { publicKey: owner, signAllTransactions } = useWallet();
 
   const liquidityPoolsList = useLiquidityPoolList();
 
+  //input => calc
   const [coinIn, setCoinIn] = useState<Token>(QuantumSOLVersionSOL);
   const [coinInAmount, setCoinInAmount] = useState<TokenAmount>();
 
   const [coinOut, setCoinOut] = useState<Token>(RAYToken);
-  const [coinOutAmount, setCoinOutAmount] = useState<Numberish>();
-  const [minReceived, setMinReceived] = useState<Numberish>();
 
   const [slippageTolerance, setSlippageTolerance] = useState<Numberish>();
-
-  const [routes, setRoutes] = useState<RouteInfo[]>([]);
 
   const [tokenAccountRawInfos, setTokenAccountRawInfos] =
     useState<TokenAccount[]>();
@@ -69,28 +64,22 @@ function App() {
     });
   }, [connection, owner]);
 
-  const calcSwap = useCallback(() => {
-    if (!connection) return; //handle error case? but this should never happen, should block swap if no connection
-    if (!coinInAmount) return;
-    if (!slippageTolerance) return;
-
-    handleCalculateSwap(
-      connection,
-      coinIn,
-      coinOut,
-      coinInAmount,
-      slippageTolerance,
-      liquidityPoolsList
-    );
-  }, [
+  const {
+    fee,
+    routes,
+    minReceived,
+    priceImpact,
+    executionPrice,
+    currentPrice,
+    routeType,
+  } = useCalculateSwap(
     connection,
     coinIn,
     coinOut,
     coinInAmount,
-    coinOutAmount,
     slippageTolerance,
-    liquidityPoolsList,
-  ]);
+    liquidityPoolsList
+  );
 
   const swap = useMemo(() => {
     if (!connection) return; //handle error case? but this should never happen, should block swap if no connection
@@ -98,6 +87,7 @@ function App() {
     if (!tokenAccountRawInfos) return; //''
     if (!coinInAmount) return; //''
     if (!minReceived) return; //''
+    if (!routes) return; //''
     handleSwap(
       connection,
       routes,
@@ -107,7 +97,8 @@ function App() {
       coinInAmount,
       coinOut,
       minReceived,
-      true
+      true,
+      signAllTransactions
     );
   }, [
     connection,

@@ -14,7 +14,6 @@ import {
   Trade,
   ZERO,
 } from '@raydium-io/raydium-sdk';
-import { useWallet } from '@solana/wallet-adapter-react';
 import {
   Connection,
   PublicKey,
@@ -94,10 +93,12 @@ function asyncMap<T, U>(
 
 const partialSignTransacion = async (
   transaction: Transaction,
+  owner: PublicKey,
+  connection: Connection,
   signers?: Signer[]
 ): Promise<Transaction> => {
   if (signers?.length) {
-    await attachRecentBlockhash(transaction);
+    await attachRecentBlockhash([transaction], owner, connection);
     transaction.partialSign(...signers);
     return transaction;
   }
@@ -106,10 +107,17 @@ const partialSignTransacion = async (
 
 const loadTransaction = async (payload: {
   transaction: Transaction;
+  owner: PublicKey;
+  connection: Connection;
   signers?: Signer[];
 }) => {
-  const { transaction, signers } = payload;
-  const signedTransaction = await partialSignTransacion(transaction, signers);
+  const { transaction, owner, connection, signers } = payload;
+  const signedTransaction = await partialSignTransacion(
+    transaction,
+    owner,
+    connection,
+    signers
+  );
   return signedTransaction;
 };
 
@@ -313,10 +321,11 @@ const handleSwap = async (
   coinInTokenAmount: TokenAmount,
   coinOut: Token,
   minReceived: Numberish,
-  alreadyDecimaled: boolean
+  alreadyDecimaled: boolean,
+  signAllTransactions:
+    | ((transaction: Transaction[]) => Promise<Transaction[]>)
+    | undefined
 ) => {
-  const { signAllTransactions, publicKey } = useWallet();
-
   const amountOutBeforeDeUI = toTokenAmount(
     minReceived,
     coinOut,
@@ -338,7 +347,12 @@ const handleSwap = async (
     await asyncMap([setupTransaction, tradeTransaction], (merged) => {
       if (!merged) return;
       const { transaction, signers } = merged;
-      return loadTransaction({ transaction: transaction, signers });
+      return loadTransaction({
+        transaction: transaction,
+        owner,
+        connection,
+        signers,
+      });
     })
   );
 

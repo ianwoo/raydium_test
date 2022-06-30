@@ -1,14 +1,18 @@
-import { useEffect } from 'react';
+import { useState } from 'react';
 
 import BN from 'bn.js';
 
 import {
+  CurrencyAmount,
   jsonInfo2PoolKeys,
   Liquidity,
   LiquidityPoolJsonInfo,
   Percent,
+  Price,
   PublicKeyish,
   ReplaceType,
+  RouteInfo,
+  RouteType,
   Token,
   Trade,
   ZERO,
@@ -19,22 +23,21 @@ import {
   PublicKey,
 } from '@solana/web3.js';
 
-import useAsyncEffect from '../hooks/useAsyncEffect';
-import {
-  deUIToken,
-  deUITokenAmount,
-} from '../utils/deUITokenAmount';
-import findLiquidityInfoByTokenMint from './getLiquidity';
+import findLiquidityInfoByTokenMint from '../services/getLiquidity';
 import {
   Numberish,
   parseNumberInfo,
-  shakeNullItems,
   toBN,
   toFraction,
   toFractionWithDecimals,
   toPubString,
   toTokenAmount,
-} from './handleSwap';
+} from '../services/handleSwap';
+import {
+  deUIToken,
+  deUITokenAmount,
+} from '../utils/deUITokenAmount';
+import useAsyncEffect from './useAsyncEffect';
 
 export type HexAddress = string;
 
@@ -162,142 +165,6 @@ export async function sdkParseJsonLiquidityInfo(
   }
 }
 
-function handleCalculateSwap(
-  connection: Connection,
-  coinIn: Token,
-  coinOut: Token,
-  coinInAmount: Numberish,
-  slippageTolerance: Numberish,
-  liquidityPoolsList: LiquidityPoolJsonInfo[] //pull this in only ONCE using ky
-) {
-  //   const refreshCount = useSwap((s) => s.refreshCount); figure out refresh later
-
-  //REMOVING directionReversed for test
-  //   const focusSide = directionReversed ? "coin2" : "coin1"; // temporary focus side is always up, due to swap route's `Trade.getBestAmountIn()` is not ready
-  const { connected } = useWallet();
-
-  const liquidityInfo = findLiquidityInfoByTokenMint(
-    coinIn.mint,
-    coinOut.mint,
-    liquidityPoolsList
-  );
-  //plug this into the UI later
-
-  useEffect(
-    () => {
-      cleanCalcCache();
-    },
-    [
-      // refreshCount
-    ]
-  );
-
-  // if don't check focusSideCoin, it will calc twice.
-  // one for coin1Amount then it will change coin2Amount
-  // changing coin2Amount will cause another calc
-  useAsyncEffect(async () => {
-    if (!coinIn || !coinOut || !connection) {
-      //RESET STATE
-
-      //   useSwap.setState({
-      //     fee: undefined,
-      //     minReceived: undefined,
-      //     maxSpent: undefined,
-      //     routes: undefined,
-      //     priceImpact: undefined,
-      //     executionPrice: undefined,
-      //     ...{
-      //       [focusSide === "coin1" ? "coin2Amount" : "coin1Amount"]: undefined,
-      //     },
-      //   });
-      return;
-    }
-
-    const focusDirectionSide = "up"; // temporary focus side is always up, due to swap route's `Trade.getBestAmountIn()` is not ready
-    // focusSide === 'coin1' ? (directionReversed ? 'down' : 'up') : directionReversed ? 'up' : 'down'
-
-    try {
-      const calcResult = await calculatePairTokenAmount(
-        coinIn,
-        coinInAmount,
-        coinOut,
-        connection,
-        slippageTolerance,
-        liquidityPoolsList
-      );
-
-      if (focusDirectionSide === "up") {
-        const {
-          routes,
-          priceImpact,
-          executionPrice,
-          currentPrice,
-          routeType,
-          fee,
-        } = calcResult ?? {};
-        const { amountOut, minAmountOut } = (calcResult?.info ?? {}) as {
-          amountOut?: string;
-          minAmountOut?: string;
-        };
-        // useSwap.setState({
-        //   fee,
-        //   routes,
-        //   priceImpact,
-        //   executionPrice,
-        //   currentPrice,
-        //   minReceived: minAmountOut,
-        //   maxSpent: undefined,
-        //   routeType,
-        //   ...{
-        //     [focusSide === "coin1" ? "coin2Amount" : "coin1Amount"]: amountOut,
-        //   },
-        // });
-      } else {
-        const {
-          routes,
-          priceImpact,
-          executionPrice,
-          currentPrice,
-          routeType,
-          fee,
-        } = calcResult ?? {};
-        const { amountIn, maxAmountIn } = (calcResult?.info ?? {}) as {
-          amountIn?: string;
-          maxAmountIn?: string;
-        };
-        // useSwap.setState({
-        //   fee,
-        //   routes,
-        //   priceImpact,
-        //   executionPrice,
-        //   currentPrice,
-        //   minReceived: undefined,
-        //   maxSpent: maxAmountIn,
-        //   swapable,
-        //   routeType,
-        //   ...{
-        //     [focusSide === "coin1" ? "coin2Amount" : "coin1Amount"]: amountIn,
-        //   },
-        // });
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  }, [
-    coinIn,
-    coinOut,
-    coinInAmount,
-    slippageTolerance,
-    connection,
-    // pathname,
-    // refreshCount,
-    connected, // init fetch data
-    liquidityInfo,
-  ]);
-}
-
-const sdkParsedInfoCache = new Map<HexAddress, SDKParsedLiquidityInfo[]>();
-
 type SwapCalculatorInfo = {
   executionPrice: ReturnType<
     typeof Trade["getBestAmountOut"]
@@ -311,10 +178,6 @@ type SwapCalculatorInfo = {
     | { amountOut: string; minAmountOut: string }
     | { amountIn: string; maxAmountIn: string };
 };
-
-function cleanCalcCache() {
-  sdkParsedInfoCache.clear();
-}
 
 async function calculatePairTokenAmount(
   coinIn: Token,
@@ -333,19 +196,8 @@ async function calculatePairTokenAmount(
   );
 
   if (routeRelated.length) {
-    const key = routeRelated
-      .map((jsonInfo: LiquidityPoolJsonInfo) => jsonInfo.id)
-      .join("-");
-    const sdkParsedInfos = sdkParsedInfoCache.has(key)
-      ? sdkParsedInfoCache.get(key)!
-      : await (async () => {
-          const sdkParsed = await sdkParseJsonLiquidityInfo(
-            routeRelated,
-            connection
-          );
-          sdkParsedInfoCache.set(key, sdkParsed);
-          return sdkParsed;
-        })();
+    const sdkParsedInfos = await (async () =>
+      await sdkParseJsonLiquidityInfo(routeRelated, connection))();
 
     const pools = routeRelated.map(
       (jsonInfo: LiquidityPoolJsonInfo, idx: number) => ({
@@ -369,22 +221,22 @@ async function calculatePairTokenAmount(
       amountIn: deUITokenAmount(coinInTokenAmount),
       slippage: toPercent(slippageTolerance),
     });
-    // console.log('{ amountOut, minAmountOut, executionPrice, currentPrice, priceImpact, routes, routeType, fee }: ', {
-    //   amountOut,
-    //   minAmountOut,
-    //   executionPrice,
-    //   currentPrice,
-    //   priceImpact,
-    //   routes,
-    //   routeType,
-    //   fee
-    // })
+    console.log(
+      "{ amountOut, minAmountOut, executionPrice, currentPrice, priceImpact, routes, routeType, fee }: ",
+      {
+        amountOut,
+        minAmountOut,
+        executionPrice,
+        currentPrice,
+        priceImpact,
+        routes,
+        routeType,
+        fee,
+      }
+    );
 
     const sdkParsedInfoMap = new Map(
       sdkParsedInfos.map((info: any) => [toPubString(info.id), info])
-    );
-    const choosedSdkParsedInfos = shakeNullItems(
-      routes.map((route) => sdkParsedInfoMap.get(toPubString(route.keys.id)))
     );
 
     //we know that SOL is swappable with RAY.
@@ -401,11 +253,119 @@ async function calculatePairTokenAmount(
       routeType,
       fee,
       info: {
-        amountOut: amountOut.toExact(), //'toUITokenAmount' - handle another way
-        minAmountOut: minAmountOut.toExact(), //'toUITokenAmount' - handle another way
+        amountOut: amountOut.toExact(), //'toUITokenAmount' - handle in component
+        minAmountOut: minAmountOut.toExact(), //'toUITokenAmount' - handle in component
       },
     };
   }
 }
 
-export default handleCalculateSwap;
+export type CalcSwapReturn = {
+  fee: CurrencyAmount[] | undefined;
+  routes: RouteInfo[] | undefined;
+  minReceived: string | undefined;
+  priceImpact: Percent | undefined;
+  executionPrice: Price | null | undefined;
+  currentPrice?: Price | null;
+  routeType?: RouteType;
+};
+
+function useCalculateSwap(
+  connection: Connection | undefined,
+  coinIn: Token | undefined,
+  coinOut: Token,
+  coinInAmount: Numberish | undefined,
+  slippageTolerance: Numberish | undefined,
+  liquidityPoolsList: LiquidityPoolJsonInfo[] //pull this in only ONCE using ky
+): CalcSwapReturn {
+  const { connected } = useWallet();
+
+  const [calcSwapReturn, setCalcSwapReturn] = useState<CalcSwapReturn>({
+    fee: undefined,
+    minReceived: undefined,
+    routes: undefined,
+    priceImpact: undefined,
+    executionPrice: undefined,
+  });
+
+  // if don't check focusSideCoin, it will calc twice.
+  // one for coin1Amount then it will change coin2Amount
+  // changing coin2Amount will cause another calc
+  useAsyncEffect(async () => {
+    if (
+      !connection ||
+      !coinIn ||
+      !coinInAmount ||
+      !coinOut ||
+      !slippageTolerance
+    ) {
+      //RESET STATE
+
+      setCalcSwapReturn({
+        fee: undefined,
+        minReceived: undefined,
+        routes: undefined,
+        priceImpact: undefined,
+        executionPrice: undefined,
+      });
+      return;
+    }
+
+    const liquidityInfo = findLiquidityInfoByTokenMint(
+      coinIn.mint,
+      coinOut.mint,
+      liquidityPoolsList
+    );
+
+    // only one direction, due to swap route's `Trade.getBestAmountIn()` is not ready\
+    //therefore no need for 'maxSpent'
+
+    try {
+      const calcResult = await calculatePairTokenAmount(
+        coinIn,
+        coinInAmount,
+        coinOut,
+        connection,
+        slippageTolerance,
+        liquidityPoolsList
+      );
+
+      const {
+        routes,
+        priceImpact,
+        executionPrice,
+        currentPrice,
+        routeType,
+        fee,
+      } = calcResult ?? {};
+      const { amountOut, minAmountOut } = (calcResult?.info ?? {}) as {
+        amountOut?: string;
+        minAmountOut?: string;
+      };
+      setCalcSwapReturn({
+        fee: fee,
+        routes: routes,
+        priceImpact: priceImpact,
+        executionPrice: executionPrice,
+        currentPrice: currentPrice,
+        minReceived: minAmountOut,
+        routeType: routeType,
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  }, [
+    coinIn,
+    coinOut,
+    coinInAmount,
+    slippageTolerance,
+    connection,
+    // pathname,
+    // refreshCount,
+    connected, // init fetch data
+  ]);
+
+  return calcSwapReturn;
+}
+
+export default useCalculateSwap;
