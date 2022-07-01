@@ -12,8 +12,10 @@ import {
   TokenAccount,
   TokenAmount,
   Trade,
+  UnsignedTransactionAndSigners,
   ZERO,
 } from '@raydium-io/raydium-sdk';
+import { SendTransactionOptions } from '@solana/wallet-adapter-base';
 import {
   Connection,
   PublicKey,
@@ -82,13 +84,6 @@ function omit<T, U extends keyof T>(
 
 export function shakeNullItems<T>(arr: T[]): NonNullable<T>[] {
   return arr.filter((item) => item != null) as NonNullable<T>[];
-}
-
-function asyncMap<T, U>(
-  arr: T[],
-  mapFn: (item: T, index: number) => MayPromise<U>
-): Promise<Awaited<U>[]> {
-  return Promise.all(arr.map(async (item, idx) => await mapFn(item, idx)));
 }
 
 const partialSignTransacion = async (
@@ -255,37 +250,41 @@ export function toBN(n: Numberish, decimal: BigNumberish = 0): BN {
 
 async function sendMultiTransaction(
   transactions: Transaction[],
+  sendTransaction: (
+    transaction: Transaction,
+    connection: Connection,
+    options?: SendTransactionOptions | undefined
+  ) => Promise<string>,
   connection: Connection,
-  signAllTransactions:
-    | undefined
-    | ((transaction: Transaction[]) => Promise<Transaction[]>)
+  signAllTransactions: (transaction: Transaction[]) => Promise<Transaction[]>
 ) {
-  return async () => {
-    try {
-      const allSignedTransactions = transactions; //should not need to signAllTransactions under limited scope of test
+  try {
+    // const allSignedTransactions = transactions; //should not need to signAllTransactions under limited scope of test
 
-      const txids = allSignedTransactions.map((st, i) =>
-        sendSignedTransaction(
-          st,
-          connection,
-          true,
-          allSignedTransactions.length,
-          i
-        )
-      );
+    const allSignedTransactions = await signAllTransactions(transactions);
 
-      return {
-        allSuccess: true,
-        txids: txids,
-      };
-    } catch (err) {
-      console.log(err);
-      return {
-        allSuccess: false,
-        txids: [],
-      };
-    }
-  };
+    const txids = allSignedTransactions.map((st, i) =>
+      sendSignedTransaction(
+        st,
+        connection,
+        sendTransaction,
+        true,
+        allSignedTransactions.length,
+        i
+      )
+    );
+
+    return {
+      allSuccess: true,
+      txids: txids,
+    };
+  } catch (err) {
+    console.log(err);
+    return {
+      allSuccess: false,
+      txids: [],
+    };
+  }
 }
 
 export function toTokenAmount(
@@ -323,9 +322,14 @@ const handleSwap = async (
   coinOut: Token,
   minReceived: Numberish,
   alreadyDecimaled: boolean,
-  signAllTransactions: // | (() => void)
-  ((transaction: Transaction[]) => Promise<Transaction[]>) | undefined
+  signAllTransactions: (transaction: Transaction[]) => Promise<Transaction[]>,
+  sendTransaction: (
+    transaction: Transaction,
+    connection: Connection,
+    options?: SendTransactionOptions | undefined
+  ) => Promise<string>
 ) => {
+  console.log("handling swap");
   const coinOutTokenAmount = toTokenAmount(
     minReceived,
     coinOut,
@@ -344,24 +348,29 @@ const handleSwap = async (
       amountOut: deUITokenAmount(coinOutTokenAmount),
     });
 
-  const signedTransactions = shakeNullItems(
-    await asyncMap([setupTransaction, tradeTransaction], (merged) => {
-      if (!merged) return;
-      const { transaction, signers } = merged;
-      return loadTransaction({
-        transaction: transaction,
-        owner,
-        connection,
-        signers,
-      });
-    })
+  const unsignedTransactionAndSignersAndNulls = [
+    setupTransaction,
+    tradeTransaction,
+  ];
+
+  const unsignedTransactionAndSigners: UnsignedTransactionAndSigners[] =
+    shakeNullItems(unsignedTransactionAndSignersAndNulls);
+
+  const unsignedTransactions = unsignedTransactionAndSigners.map(
+    (du) => du.transaction
   );
 
+  await attachRecentBlockhash(unsignedTransactions, owner, connection);
+
   const finalInfos = await sendMultiTransaction(
-    signedTransactions,
+    unsignedTransactions,
+    sendTransaction,
     connection,
     signAllTransactions
   );
+
+  console.log("final info");
+  console.log(finalInfos);
 
   return finalInfos;
 };

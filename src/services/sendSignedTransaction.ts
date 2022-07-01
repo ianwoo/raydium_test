@@ -1,3 +1,4 @@
+import { SendTransactionOptions } from '@solana/wallet-adapter-base';
 import {
   Connection,
   Transaction,
@@ -6,15 +7,18 @@ import {
 export default async function sendSignedTransaction(
   txn: Transaction,
   connection: Connection,
+  sendTransaction: (
+    transaction: Transaction,
+    connection: Connection,
+    options?: SendTransactionOptions | undefined
+  ) => Promise<string>,
   multiTxn?: boolean,
   multiTxnLength?: number,
   idx?: number
 ) {
   try {
     const txid = await (async () => {
-      return await connection.sendRawTransaction(txn.serialize(), {
-        skipPreflight: true,
-      });
+      return await sendTransaction(txn, connection);
     })();
     return txid;
   } catch (err) {

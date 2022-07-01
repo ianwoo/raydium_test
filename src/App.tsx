@@ -49,7 +49,11 @@ function App() {
   const connection = useConnectionInit();
 
   //solana wallet
-  const { publicKey: owner, signAllTransactions } = useWallet();
+  const {
+    publicKey: owner,
+    signAllTransactions,
+    sendTransaction,
+  } = useWallet();
 
   //sol balance
   const [solBalance, setSolBalance] = useState("0");
@@ -161,9 +165,14 @@ function App() {
   const swap = useCallback(() => {
     if (!connection) return; //handle error case? but this should never happen, should block swap if no connection
     if (!owner) return; //''
+    if (!signAllTransactions) return; //same condition as above, really
+    console.log("no token account raw infos");
     if (!tokenAccountRawInfos) return; //''
+    console.log("no coin in amount");
     if (!coinInAmount) return; //''
+    console.log("no min received");
     if (!minReceived) return; //''
+    console.log("no routes");
     if (!routes) return; //''
     handleSwap(
       connection,
@@ -176,7 +185,8 @@ function App() {
       coinOut,
       minReceived,
       true,
-      signAllTransactions
+      signAllTransactions,
+      sendTransaction
     );
   }, [
     connection,
