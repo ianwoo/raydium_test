@@ -233,7 +233,20 @@ function App() {
               <span>{!reversed ? " RAY" : " SOL"}</span>
             </div>
           ) : null}
-          <div className="reverse" onClick={() => setReversed(!reversed)}>
+          <div
+            className="reverse"
+            onClick={() => {
+              if (!reversed) {
+                setReversed(true);
+                setCoinIn(RAYToken);
+                setCoinOut(QuantumSOLVersionSOL);
+              } else {
+                setReversed(false);
+                setCoinIn(QuantumSOLVersionSOL);
+                setCoinOut(RAYToken);
+              }
+            }}
+          >
             <ReverseIcon />
           </div>
           <div className={"coin ray" + (reversed ? " reversed in" : " out")}>
@@ -277,7 +290,9 @@ function App() {
           Insufficient {reversed ? "RAY" : "SOL"} balance
         </span>
       ) : (
-        <button onClick={swap}>Swap</button>
+        <button className="execute-swap" onClick={swap}>
+          Swap
+        </button>
       )}
     </div>
   );

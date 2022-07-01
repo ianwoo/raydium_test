@@ -131,8 +131,23 @@
       }
     }
   }
-  button,
   span {
     color: white;
+  }
+  button {
+    width: 420px;
+    height: 69px;
+    margin-top: 69px;
+    border-radius: 24px;
+    background: linear-gradient(
+        140.14deg,
+        rgba(0, 182, 191, 0.15),
+        rgba(27, 22, 89, 0.1) 86.61%
+      ),
+      linear-gradient(321.82deg, #18134d, #1b1659);
+    font-size: 24px;
+    border: none;
+    color: white;
+    cursor: pointer;
   }
 }
