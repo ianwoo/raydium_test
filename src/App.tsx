@@ -1,16 +1,19 @@
 import './App.scss';
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
 } from 'react';
 
+import { BigNumber } from 'bignumber.js';
+
 import {
   Token,
   TokenAccount,
-  TokenAmount,
 } from '@raydium-io/raydium-sdk';
+import { useWallet } from '@solana/wallet-adapter-react';
 import {
   Connection,
   PublicKey,
@@ -44,11 +47,39 @@ function isMeaningfulNumber(n: Numberish | undefined): n is Numberish {
 function App() {
   //init solana connection
   const connection = useConnectionInit();
-  //solana wallet
-  // const { publicKey: owner, signAllTransactions } = useWallet();
 
-  const owner = false;
-  const signAllTransactions = () => {};
+  //solana wallet
+  const { publicKey: owner, signAllTransactions } = useWallet();
+
+  //sol balance
+  const [solBalance, setSolBalance] = useState("0");
+  useEffect(() => {
+    if (!connection) return;
+    if (!owner) return;
+    (async () => {
+      const _balance = await connection.getBalance(owner);
+      const solBalanceBigNum = new BigNumber(_balance).dividedBy(
+        new BigNumber(1000000000)
+      );
+      setSolBalance(solBalanceBigNum.toString());
+    })();
+  }, [connection, owner]);
+
+  //ray balance
+  const [rayBalance, setRayBalance] = useState("0");
+  useEffect(() => {
+    if (!connection) return;
+    if (!owner) return;
+    (async () => {
+      const _balances = await connection.getTokenAccountsByOwner(owner, {
+        mint: RAYMint,
+      });
+      console.log("wallet balances");
+      console.log(_balances);
+      // setRayBalance(_balance.value.amount);
+    })();
+  }, [connection, owner]);
+
   //liquidity pool json data from raydium
   const liquidityPoolsList = useLiquidityPoolList();
 
@@ -65,7 +96,7 @@ function App() {
 
   //coinOut
   const [coinOut, setCoinOut] = useState<Token>(RAYToken);
-  const [coinOutAmount, setCoinOutAmount] = useState<TokenAmount>();
+  const [coinOutAmount, setCoinOutAmount] = useState<string>();
 
   //validation
   const coinInValidPattern = useMemo(
@@ -73,6 +104,7 @@ function App() {
     [coinIn]
   );
   useEffect(() => {
+    if (!userInput) setCoinOutAmount(undefined);
     const satisfied = coinInValidPattern.test(userInput ?? "");
     if (!satisfied) {
       const matched = userInput?.match(
@@ -120,8 +152,13 @@ function App() {
     liquidityPoolsList
   );
 
+  useEffect(() => {
+    if (!minReceived) return;
+    setCoinOutAmount(minReceived);
+  }, [minReceived]);
+
   //execute swap
-  const swap = useMemo(() => {
+  const swap = useCallback(() => {
     if (!connection) return; //handle error case? but this should never happen, should block swap if no connection
     if (!owner) return; //''
     if (!tokenAccountRawInfos) return; //''
@@ -146,17 +183,17 @@ function App() {
     routes,
     tokenAccountRawInfos,
     owner,
+    coinIn,
     coinInAmount,
     coinOut,
     minReceived,
+    signAllTransactions,
   ]);
 
   const hasSwapDetermined =
     isMeaningfulNumber(coinInAmount) &&
     isMeaningfulNumber(coinOutAmount) &&
     executionPrice;
-
-  console.log(executionPrice);
 
   return (
     <div className="app">
@@ -165,7 +202,11 @@ function App() {
           <div className={"coin sol" + (reversed ? " reversed out" : " in")}>
             <div className="labels">
               <span>{reversed ? "To" : "From"}</span>
-              <span>Balance: (wallet not connected)</span>
+              <span>
+                {!owner
+                  ? "Balance: (wallet not connected)"
+                  : "Balance: " + solBalance}
+              </span>
             </div>
             <div className="action">
               <div className="coin-label">
@@ -179,7 +220,9 @@ function App() {
                   onChange={(e) => setUserInput(e.target.value)}
                 />
               ) : (
-                <div>{coinOutAmount ? coinOutAmount.toString() : ""}</div>
+                <div className="coin-out-amt">
+                  {coinOutAmount ? coinOutAmount.toString() : ""}
+                </div>
               )}
             </div>
           </div>
@@ -196,7 +239,11 @@ function App() {
           <div className={"coin ray" + (reversed ? " reversed in" : " out")}>
             <div className="labels">
               <span>{reversed ? "From" : "To"}</span>
-              <span>Balance: (wallet not connected)</span>
+              <span>
+                {!owner
+                  ? "Balance: (wallet not connected)"
+                  : "Balance: " + rayBalance}
+              </span>
             </div>
             <div className="action">
               <div className="coin-label">
@@ -204,14 +251,34 @@ function App() {
                 <span>RAY</span>
               </div>
               {reversed ? (
-                <input type="number" value={userInput} />
+                <input
+                  type="number"
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                />
               ) : (
-                <div>{coinOutAmount ? coinOutAmount.toString() : ""}</div>
+                <div className="coin-out-amt">
+                  {coinOutAmount ? coinOutAmount.toString() : ""}
+                </div>
               )}
             </div>
           </div>
         </div>
+        {}
       </div>
+      {!owner ? (
+        <span className="plz-connect">Please connect wallet</span>
+      ) : !isMeaningfulNumber(coinInAmount) ? (
+        <span className="plz-enter">Please enter an amount</span>
+      ) : new BigNumber(coinInAmount.toString()).comparedTo(
+          new BigNumber(reversed ? rayBalance : solBalance)
+        ) === 1 ? (
+        <span className="plz-lower">
+          Insufficient {reversed ? "RAY" : "SOL"} balance
+        </span>
+      ) : (
+        <button onClick={swap}>Swap</button>
+      )}
     </div>
   );
 }

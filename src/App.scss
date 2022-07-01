@@ -101,7 +101,15 @@
             color: white;
             margin-left: 24px;
           }
+
+          .coin-out-amt {
+            color: white;
+          }
         }
+      }
+
+      .swap-price-indicator {
+        color: white;
       }
 
       .reverse {
@@ -122,5 +130,9 @@
         cursor: pointer;
       }
     }
+  }
+  button,
+  span {
+    color: white;
   }
 }
